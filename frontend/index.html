@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeetIQ — Meeting Intelligence Platform</title>
+  <meta name="description" content="AI-powered meeting intelligence. Extract tasks, escalations, risks and decisions from any meeting transcript." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── TOP NAV ──────────────────────────────────────────── -->
+  <header class="topnav">
+    <div class="brand">
+      <span class="brand-icon">⚡</span>
+      <span class="brand-name">MeetIQ</span>
+      <span class="brand-tag">Meeting Intelligence</span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="submit" role="tab" id="tab-submit" aria-selected="true">
+        <span class="tab-icon">✍️</span> Submit Meeting
+      </button>
+      <button class="tab" data-tab="query" role="tab" id="tab-query" aria-selected="false">
+        <span class="tab-icon">💬</span> Query
+      </button>
+      <button class="tab" data-tab="dashboard" role="tab" id="tab-dashboard" aria-selected="false">
+        <span class="tab-icon">📊</span> Dashboard
+      </button>
+    </nav>
+    <div class="api-pill" id="api-pill">
+      <span class="dot"></span><span id="api-label">Connecting…</span>
+    </div>
+  </header>
+
+  <!-- ── MAIN CONTENT ──────────────────────────────────────── -->
+  <main class="content">
+
+    <!-- ══ TAB 1: SUBMIT MEETING ══════════════════════════ -->
+    <section class="panel active" id="panel-submit" role="tabpanel" aria-labelledby="tab-submit">
+      <div class="panel-inner">
+
+        <div class="panel-header">
+          <h1 class="panel-title">Submit Meeting</h1>
+          <p class="panel-desc">Paste raw meeting notes or a full transcript. Gemini will extract tasks, escalations, risks, and decisions automatically.</p>
+        </div>
+
+        <div class="card form-card">
+          <div class="field-row">
+            <div class="field" style="flex:1">
+              <label class="label" for="meeting-title">Meeting Title <span class="optional">(optional — auto-generated if blank)</span></label>
+              <input id="meeting-title" class="input" type="text" placeholder="e.g. Q3 Product Sync — June 9, 2026" />
+            </div>
+            <div class="field" style="width:160px">
+              <label class="label" for="save-db">Save to database</label>
+              <select id="save-db" class="input select">
+                <option value="true">Yes — persist</option>
+                <option value="false">No — preview only</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label" for="transcript">Meeting Transcript / Notes</label>
+            <textarea id="transcript" class="textarea" rows="12"
+              placeholder="Paste your meeting transcript here…&#10;&#10;Example:&#10;Attendees: Rahul (PM), Priya (Eng Lead), Sam (Design)&#10;&#10;Rahul: We need to ship the payment gateway by July 1st. Priya, can you own the backend?&#10;Priya: Sure. But we need to escalate the infra cost overrun to leadership — it's blocking us.&#10;Sam: Design assets will be ready by June 25th. There's a risk though — if the vendor delays, we miss the deadline.&#10;Rahul: Noted. Decision: we go with Stripe as the payment provider."></textarea>
+          </div>
+
+          <div class="form-footer">
+            <button id="extract-btn" class="btn btn-primary" onclick="submitMeeting()">
+              <span id="extract-label">⚡ Extract Intelligence</span>
+              <span id="extract-spinner" class="spinner hidden"></span>
+            </button>
+            <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
+          </div>
+        </div>
+
+        <!-- ── Extraction results ── -->
+        <div id="results-area" class="hidden">
+          <div class="results-header">
+            <h2 class="section-title">Extraction Results</h2>
+            <button class="btn btn-sm btn-ghost" onclick="switchTab('dashboard')">View in Dashboard →</button>
+          </div>
+          <div id="summary-box" class="summary-card hidden"></div>
+          <div class="results-tabs">
+            <button class="rtab active" data-rtab="r-tasks">Tasks <span id="r-tasks-count" class="count-badge">0</span></button>
+            <button class="rtab" data-rtab="r-escalations">Escalations <span id="r-escalations-count" class="count-badge red">0</span></button>
+            <button class="rtab" data-rtab="r-risks">Risks <span id="r-risks-count" class="count-badge yellow">0</span></button>
+            <button class="rtab" data-rtab="r-decisions">Decisions <span id="r-decisions-count" class="count-badge green">0</span></button>
+          </div>
+          <div id="r-tasks"       class="result-panel rpanel-active"></div>
+          <div id="r-escalations" class="result-panel hidden"></div>
+          <div id="r-risks"       class="result-panel hidden"></div>
+          <div id="r-decisions"   class="result-panel hidden"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══ TAB 2: QUERY ════════════════════════════════════ -->
+    <section class="panel hidden" id="panel-query" role="tabpanel" aria-labelledby="tab-query">
+      <div class="panel-inner">
+
+        <div class="panel-header">
+          <h1 class="panel-title">AI Query</h1>
+          <p class="panel-desc">Ask anything about your meeting data in plain English. Gemini searches across all stored tasks, escalations, risks, and decisions.</p>
+        </div>
+
+        <div class="card">
+          <div class="query-input-row">
+            <input id="query-input" class="input" type="text"
+              placeholder="e.g. What are all pending tasks for Rahul?"
+              onkeydown="if(event.key==='Enter') askQuery()" />
+            <button id="query-btn" class="btn btn-primary" onclick="askQuery()">
+              <span id="query-label">Ask</span>
+              <span id="query-spinner" class="spinner hidden"></span>
+            </button>
+          </div>
+
+          <div class="chips-row">
+            <span class="chip-label">Try:</span>
+            <button class="chip" onclick="setQuery('What are all open tasks?')">All open tasks</button>
+            <button class="chip" onclick="setQuery('Which escalations are critical?')">Critical escalations</button>
+            <button class="chip" onclick="setQuery('What decisions were made?')">All decisions</button>
+            <button class="chip" onclick="setQuery('What risks have high impact?')">High-impact risks</button>
+            <button class="chip" onclick="setQuery('Who has the most action items?')">Busiest owner</button>
+          </div>
+        </div>
+
+        <div id="query-answer" class="hidden">
+          <div class="answer-card card">
+            <div class="answer-header">
+              <span class="answer-icon">🤖</span>
+              <span class="answer-label">Gemini's Answer</span>
+            </div>
+            <div id="answer-text" class="answer-text"></div>
+            <div id="answer-sources" class="answer-sources hidden"></div>
+          </div>
+        </div>
+
+        <div id="query-history" class="query-history hidden">
+          <h3 class="section-title">Previous Questions</h3>
+          <div id="history-list"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══ TAB 3: DASHBOARD ════════════════════════════════ -->
+    <section class="panel hidden" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
+      <div class="panel-inner">
+
+        <div class="panel-header dash-header">
+          <div>
+            <h1 class="panel-title">Dashboard</h1>
+            <p class="panel-desc">All extracted data across every meeting.</p>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="loadDashboard()">↻ Refresh</button>
+        </div>
+
+        <!-- Stats strip -->
+        <div class="stats-strip" id="stats-strip">
+          <div class="stat-chip" id="stat-meetings"><span class="stat-num">—</span><span class="stat-lbl">Meetings</span></div>
+          <div class="stat-chip tasks" id="stat-tasks"><span class="stat-num">—</span><span class="stat-lbl">Tasks</span></div>
+          <div class="stat-chip escalations" id="stat-esc"><span class="stat-num">—</span><span class="stat-lbl">Escalations</span></div>
+          <div class="stat-chip risks" id="stat-risks"><span class="stat-num">—</span><span class="stat-lbl">Risks</span></div>
+          <div class="stat-chip decisions" id="stat-dec"><span class="stat-num">—</span><span class="stat-lbl">Decisions</span></div>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="filter-bar card">
+          <div class="filter-group">
+            <label class="label">Filter by owner</label>
+            <input id="filter-owner" class="input input-sm" type="text" placeholder="e.g. Rahul" oninput="applyFilters()" />
+          </div>
+          <div class="filter-group">
+            <label class="label">Status</label>
+            <select id="filter-status" class="input input-sm select" onchange="applyFilters()">
+              <option value="">All statuses</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+              <option value="acknowledged">Acknowledged</option>
+              <option value="resolved">Resolved</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="label">Priority / Severity</label>
+            <select id="filter-priority" class="input input-sm select" onchange="applyFilters()">
+              <option value="">All levels</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear</button>
+        </div>
+
+        <!-- Sections -->
+        <div class="dash-section">
+          <div class="section-hdr">
+            <h2 class="section-title">✅ Tasks</h2>
+            <span id="tasks-total" class="section-count"></span>
+          </div>
+          <div id="tasks-list" class="cards-grid">
+            <div class="skeleton-row"></div>
+          </div>
+        </div>
+
+        <div class="dash-section">
+          <div class="section-hdr">
+            <h2 class="section-title">🚨 Escalations</h2>
+            <span id="esc-total" class="section-count"></span>
+          </div>
+          <div id="esc-list" class="cards-grid">
+            <div class="skeleton-row"></div>
+          </div>
+        </div>
+
+        <div class="dash-section">
+          <div class="section-hdr">
+            <h2 class="section-title">⚠️ Risks</h2>
+            <span id="risks-total" class="section-count"></span>
+          </div>
+          <div id="risks-list" class="cards-grid">
+            <div class="skeleton-row"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Toast container ──────────────────────────────────── -->
+  <div id="toasts" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

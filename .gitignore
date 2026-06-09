@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# pytest / test caches
+.pytest_cache/
+.pytest/
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.env/
+
+# Database files
+*.db
+*.sqlite
+
+# Application config / secrets (CRITICAL)
+.env
+.env.development
+.env.production
+.env.local
+
+# OS files
+.DS_Store
